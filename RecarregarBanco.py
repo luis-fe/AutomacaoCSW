@@ -1,5 +1,5 @@
 import pandas as pd
-import pyodbc
+import jaydebeapi
 import time
 from sqlalchemy import create_engine
 import datetime
@@ -31,7 +31,12 @@ start_time = time.perf_counter()
 
 
 def FilaTags():
-    conn = pyodbc.connect(dsn='SISTEMAS CSW', user='root', password='ccscache')
+    conn = jaydebeapi.connect(
+    'com.intersys.jdbc.CacheDriver',
+    'jdbc:Cache://187.32.10.129:1972/SISTEMAS',
+    {'user': 'root', 'password': 'ccscache'},
+    'CacheDB.jar'
+)
     conn2 = ConexaoPostgreRailway.conexao()
     df_tags = pd.read_sql(
         "SELECT  codBarrasTag as codbarrastag, codNaturezaAtual , codEngenharia , codReduzido,(SELECT i.nome  FROM cgi.Item i WHERE i.codigo = t.codReduzido) as descricao , numeroop as numeroop,"
@@ -84,7 +89,12 @@ def FilaTags():
     return dataHora
 
 def LerEPC():
-    conn = pyodbc.connect(dsn='SISTEMAS CSW', user='root', password='ccscache')
+    conn = jaydebeapi.connect(
+        'com.intersys.jdbc.CacheDriver',
+        'jdbc:Cache://187.32.10.129:1972/SISTEMAS',
+        {'user': 'root', 'password': 'ccscache'},
+        'CacheDB.jar'
+    )
 
 
     consulta = pd.read_sql('select epc.id as epc, t.codBarrasTag as codbarrastag from tcr.SeqLeituraFase  t '
