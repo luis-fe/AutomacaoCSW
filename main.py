@@ -12,11 +12,14 @@ def print_hi(name):
 @app.route('/')
 def home():
     return render_template('index.html')
-
+@app.route('/automatizar',methods=['GET'])
+def Atumatizar():
+    RecarregarBanco.FilaTags()
+    return jsonify({'message': f'atualizado com sucesso'})
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    RecarregarBanco.FilaTags()
+
     app.run(host='0.0.0.0', port=port)
     try:
         #RecarregarBanco.FilaTags()
