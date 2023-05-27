@@ -1,6 +1,10 @@
 #
 from AutomacaoCSW import RecarregarBanco
+from flask import Flask, render_template, jsonify, request
+import os
 
+app = Flask(__name__)
+port = int(os.environ.get('PORT', 5000))
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
@@ -9,10 +13,12 @@ def print_hi(name):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=port)
     try:
         #RecarregarBanco.FilaTags()
         print_hi('luis')
     except:
         print('falha na automacao')
+
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
