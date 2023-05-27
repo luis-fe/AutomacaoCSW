@@ -73,7 +73,10 @@ def FilaTags():
     dataHora = obterHoraAtual()
     df_tags['DataHora'] = dataHora
     df_tags.to_csv('planilha.csv')
-    Funcao_Inserir(df_tags, tamanho)
+    try:
+        Funcao_Inserir(df_tags, tamanho)
+    except:
+        print('falha na funçao Inserir')
 
 
     conn.close()
