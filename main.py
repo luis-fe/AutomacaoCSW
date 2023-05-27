@@ -1,5 +1,5 @@
 #
-import RecarregarBanco
+import teste
 from flask import Flask, render_template, jsonify, request
 import os
 
@@ -14,8 +14,9 @@ def home():
     return render_template('index.html')
 @app.route('/automatizar',methods=['GET'])
 def Atumatizar():
-    RecarregarBanco.FilaTags()
-    return jsonify({'message': f'atualizado com sucesso'})
+    tamanho, hora = teste.teste()
+    return jsonify({'message': f'atualizado com sucesso: linhas inseridas na fila {tamanho}',
+                    'Horario da Atualizacao': f'{hora}'})
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':

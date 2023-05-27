@@ -80,8 +80,12 @@ def FilaTags():
     df_tags.to_csv('planilha.csv')
     try:
         Funcao_Inserir(df_tags, tamanho)
+        hora = obterHoraAtual()
+        return tamanho, hora
     except:
         print('falha na funçao Inserir')
+        hora = obterHoraAtual()
+        return tamanho, hora
 
 
     conn.close()
