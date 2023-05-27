@@ -1,0 +1,6 @@
+pyodbc==4.0.39
+numpy==1.24.1
+gunicorn==20.1.0
+psycopg2==2.9.5
+SQLAlchemy==2.0.13
+six ==1.16.0
