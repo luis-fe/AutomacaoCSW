@@ -1,9 +1,13 @@
 version: 2
 environments:
   - name: default
+    # Instalação do JDK
     scripts:
-      # Script de inicialização personalizado
-      - name: Configurar JAVA_HOME
+      - name: Instalar JDK
         script: |
-          echo "export JAVA_HOME=/usr/lib/jvm/default-java" >> ~/.bashrc
-          source ~/.bashrc
+          sudo apt-get update
+          sudo apt-get install default-jdk
+
+    # Configuração do JAVA_HOME
+    env:
+      JAVA_HOME: /usr/lib/jvm/default-java
