@@ -15,7 +15,7 @@ def home():
     return render_template('index.html')
 @app.route('/automatizar',methods=['GET'])
 def Atumatizar():
-    tamanho = ConexaoJava.check_jdk()
+    tamanho = ConexaoJava.check_java_version()
     return jsonify({'message': f'{tamanho}'})
 
 # Press the green button in the gutter to run the script.
