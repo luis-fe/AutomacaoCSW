@@ -1,7 +1,8 @@
 #
-import teste
+import ConexaoJava
 from flask import Flask, render_template, jsonify, request
 import os
+
 
 app = Flask(__name__)
 port = int(os.environ.get('PORT', 5000))
@@ -14,9 +15,8 @@ def home():
     return render_template('index.html')
 @app.route('/automatizar',methods=['GET'])
 def Atumatizar():
-    tamanho, hora = teste.teste()
-    return jsonify({'message': f'atualizado com sucesso: linhas inseridas na fila {tamanho}',
-                    'Horario da Atualizacao': f'{hora}'})
+    tamanho = ConexaoJava.check_jdk()
+    return jsonify({'message': f'{tamanho}'})
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
