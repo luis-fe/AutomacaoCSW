@@ -87,7 +87,6 @@ def FilaTags():
         hora = obterHoraAtual()
         return tamanho, hora
 
-
     conn.close()
     conn2.close()
     return dataHora
