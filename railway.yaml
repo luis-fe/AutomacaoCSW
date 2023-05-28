@@ -1,7 +1,7 @@
 version: 2
 environments:
   - name: default
-    # Instalação do JDK
+    # Instalação da JDK
     scripts:
       - name: Instalar JDK
         script: |
@@ -11,3 +11,10 @@ environments:
     # Configuração do JAVA_HOME
     env:
       JAVA_HOME: /usr/lib/jvm/default-java
+
+    # Script de pós-deploy
+    post-deploy:
+      - name: Verificar JDK e JAVA_HOME
+        script: |
+          java -version
+          echo "JAVA_HOME: $JAVA_HOME"

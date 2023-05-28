@@ -1,5 +1,5 @@
 #
-import ConexaoJava
+#import ConexaoJava
 from flask import Flask, render_template, jsonify, request
 import os
 
@@ -13,10 +13,10 @@ def print_hi(name):
 @app.route('/')
 def home():
     return render_template('index.html')
-@app.route('/automatizar',methods=['GET'])
-def Atumatizar():
-    tamanho = ConexaoJava.check_java_version()
-    return jsonify({'message': f'{tamanho}'})
+#@app.route('/automatizar',methods=['GET'])
+#def Atumatizar():
+ #   tamanho = ConexaoJava.check_java_version()
+  #  return jsonify({'message': f'{tamanho}'})
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
