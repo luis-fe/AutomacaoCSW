@@ -6,12 +6,16 @@ import datetime
 import numpy
 import ConexaoPostgreRailway
 
+
+# Função para criar os agrupamentos
+def criar_agrupamentos(grupo):
+    return '/'.join(sorted(set(grupo)))
 def obterHoraAtual():
     agora = datetime.datetime.now()
     hora_str = agora.strftime('%d/%m/%Y %H:%M')
     return hora_str
 
-def Funcao_Inserir (df_tags, tamanho):
+def Funcao_Inserir (df_tags, tamanho,tabela):
     # Configurações de conexão ao banco de dados
     database = "railway"
     user = "postgres"
@@ -25,7 +29,7 @@ def Funcao_Inserir (df_tags, tamanho):
     # Inserir dados em lotes
     chunksize = tamanho
     for i in range(0, len(df_tags), chunksize):
-        df_tags.iloc[i:i + chunksize].to_sql('filareposicaoportag', engine, if_exists='append', index=False , schema='Reposicao')
+        df_tags.iloc[i:i + chunksize].to_sql(tabela, engine, if_exists='append', index=False , schema='Reposicao')
 
 start_time = time.perf_counter()
 
@@ -71,6 +75,7 @@ def FilaTags():
     df_tags.drop_duplicates(subset='codbarrastag', inplace=True)
     # Excluir a coluna 'B' inplace
     df_tags.drop('sti_aterior', axis=1, inplace=True)
+    df_tags.drop_duplicates(subset='codbarrastag', inplace=True)
     df_tags['epc'] = df_tags['epc'].str.extract('\|\|(.*)').squeeze()
     print(df_tags.dtypes)
     print(df_tags['codbarrastag'].size)
@@ -79,7 +84,7 @@ def FilaTags():
     df_tags['DataHora'] = dataHora
     df_tags.to_csv('planilha.csv')
     try:
-        Funcao_Inserir(df_tags, tamanho)
+        Funcao_Inserir(df_tags, tamanho,'filareposicaoportag')
         hora = obterHoraAtual()
         return tamanho, hora
     except:
@@ -109,4 +114,65 @@ def LerEPC():
 
     print(consulta)
     return consulta
+
+def SeparacoPedidos():
+    conn = jaydebeapi.connect(
+        'com.intersys.jdbc.CacheDriver',
+        'jdbc:Cache://187.32.10.129:1972/SISTEMAS',
+        {'user': 'root', 'password': 'ccscache'},
+        'CacheDB.jar'
+    )
+    SugestoesAbertos = pd.read_sql('SELECT codPedido, dataGeracao,  priorizar, vlrSugestao,situacaosugestao, dataFaturamentoPrevisto  from ped.SugestaoPed  '
+                                   'WHERE codEmpresa =1 and situacaoSugestao =2',conn)
+    CapaPedido = pd.read_sql('select top 100000 codPedido, codCliente, '
+                             '(select c.nome from fat.Cliente c WHERE c.codEmpresa = 1 and p.codCliente = c.codCliente) as desc_cliente, '
+                             '(select r.nome from fat.Representante  r WHERE r.codEmpresa = 1 and r.codRepresent = p.codRepresentante) as desc_representante, '
+                             '(select c.nomeCidade from fat.Cliente  c WHERE c.codEmpresa = 1 and c.codCliente = p.codCliente) as cidade, '
+                             '(select c.nomeEstado from fat.Cliente  c WHERE c.codEmpresa = 1 and c.codCliente = p.codCliente) as estado, '
+                             ' codRepresentante , codTipoNota, CondicaoDeVenda as condvenda  from ped.Pedido p  '
+                                   ' WHERE p.codEmpresa = 1 order by codPedido desc ',conn)
+    SugestoesAbertos = pd.merge(SugestoesAbertos,CapaPedido,on= 'codPedido', how = 'left')
+    SugestoesAbertos.rename(columns={'codPedido': 'codigopedido', 'vlrSugestao': 'vlrsugestao'
+        , 'dataGeracao': 'datageracao','situacaoSugestao':'situacaosugestao','dataFaturamentoPrevisto':'datafaturamentoprevisto',
+        'codCliente':'codcliente', 'codRepresentante':'codrepresentante','codTipoNota':'codtiponota'}, inplace=True)
+    tiponota = pd.read_sql('select  p.tipoNota as desc_tiponota  from dw_ped.Pedido p WHERE p.codEmpresa = 1 '
+                           'group by tipoNota',conn)
+    condicaopgto = pd.read_sql('select  p.condVenda as condicaopgto  from dw_ped.Pedido p WHERE p.codEmpresa = 1 '
+                           'group by condVenda ',conn)
+
+    # Extrair caracteres à esquerda do hífen
+    tiponota['codtiponota'] = tiponota['desc_tiponota'].str.split(' -').str[0]
+    condicaopgto['condvenda'] = '1||'+condicaopgto['condicaopgto'].str.split(' -').str[0]
+    SugestoesAbertos = pd.merge(SugestoesAbertos, tiponota, on='codtiponota', how='left')
+    SugestoesAbertos = pd.merge(SugestoesAbertos, condicaopgto, on='condvenda', how='left')
+
+    conn2 = ConexaoPostgreRailway.conexao()
+    validacao = pd.read_sql('select codigopedido, '+"'ok'"+' as "validador"  from "Reposicao".filaseparacaopedidos f ', conn2)
+
+    SugestoesAbertos = pd.merge(SugestoesAbertos, validacao, on='codigopedido', how='left')
+    SugestoesAbertos = SugestoesAbertos.loc[SugestoesAbertos['validador'].isnull()]
+    # Excluir a coluna 'B' inplace
+    SugestoesAbertos.drop('validador', axis=1, inplace=True)
+    tamanho = SugestoesAbertos['codigopedido'].size
+    dataHora = obterHoraAtual()
+    SugestoesAbertos['datahora'] = dataHora
+    # Contar o número de ocorrências de cada valor na coluna 'coluna'
+    contagem = SugestoesAbertos['codcliente'].value_counts()
+
+    # Criar uma nova coluna 'contagem' no DataFrame com os valores contados
+    SugestoesAbertos['contagem'] = SugestoesAbertos['codcliente'].map(contagem)
+    # Aplicar a função de agrupamento usando o método groupby
+    SugestoesAbertos['agrupamentopedido'] = SugestoesAbertos.groupby('codcliente')['codigopedido'].transform(criar_agrupamentos)
+
+   # try:
+    Funcao_Inserir(SugestoesAbertos,tamanho,'filaseparacaopedidos')
+     #   hora = obterHoraAtual()
+      #  return tamanho, hora
+
+    #except:
+     #   print('falha na funçao Inserir Separacao')
+      #  hora = obterHoraAtual()
+       # conn.close()
+        #return tamanho, hora
+
 
