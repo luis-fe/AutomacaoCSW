@@ -12,10 +12,15 @@ def my_task():
         # coloque o código que você deseja executar continuamente aqui
         tamnho, datahora = RecarregarBanco.FilaTags()
         TratamentoErro.TratandoErroTagsSemelhanteFilaxInventario()
+        RecarregarBanco.SugestaoSKU()
+
+        RecarregarBanco.VerificarPedidoFeito()
         print(f'tarefa execultado com sucesso - fila reposicao: {datahora}')
         try:
             tamnho1, datahora2 = RecarregarBanco.SeparacoPedidos()
             TratamentoErro.TratandoErroTagsSemelhanteFilaxInventario()
+            RecarregarBanco.SugestaoSKU()
+            RecarregarBanco.VerificarPedidoFeito()
             print(f'tarefa execultado com sucesso - fila pedidos: {datahora2}, linhas afetadas {tamnho1}')
         except:
             print('falha na automacao - Fila Separcao')
@@ -39,5 +44,5 @@ def Atumatizar():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-
+    RecarregarBanco.SugestaoSKU()
     app.run(host='0.0.0.0', port=port)

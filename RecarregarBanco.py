@@ -4,7 +4,10 @@ import time
 from sqlalchemy import create_engine
 import datetime
 import numpy
+
+import CalculoNecessidadesEndereco
 import ConexaoPostgreRailway
+from psycopg2 import sql
 
 
 # Função para criar os agrupamentos
@@ -15,7 +18,7 @@ def obterHoraAtual():
     hora_str = agora.strftime('%d/%m/%Y %H:%M')
     return hora_str
 
-def Funcao_Inserir (df_tags, tamanho,tabela):
+def Funcao_Inserir (df_tags, tamanho,tabela, replace):
     # Configurações de conexão ao banco de dados
     database = "railway"
     user = "postgres"
@@ -29,7 +32,7 @@ def Funcao_Inserir (df_tags, tamanho,tabela):
     # Inserir dados em lotes
     chunksize = tamanho
     for i in range(0, len(df_tags), chunksize):
-        df_tags.iloc[i:i + chunksize].to_sql(tabela, engine, if_exists='append', index=False , schema='Reposicao')
+        df_tags.iloc[i:i + chunksize].to_sql(tabela, engine, if_exists=replace, index=False , schema='Reposicao')
 
 start_time = time.perf_counter()
 
@@ -84,7 +87,7 @@ def FilaTags():
     df_tags['DataHora'] = dataHora
     df_tags.to_csv('planilha.csv')
     try:
-        Funcao_Inserir(df_tags, tamanho,'filareposicaoportag')
+        Funcao_Inserir(df_tags, tamanho,'filareposicaoportag', 'append')
         hora = obterHoraAtual()
         return tamanho, hora
     except:
@@ -165,7 +168,7 @@ def SeparacoPedidos():
     SugestoesAbertos['agrupamentopedido'] = SugestoesAbertos.groupby('codcliente')['codigopedido'].transform(criar_agrupamentos)
 
    # try:
-    Funcao_Inserir(SugestoesAbertos,tamanho,'filaseparacaopedidos')
+    Funcao_Inserir(SugestoesAbertos,tamanho,'filaseparacaopedidos','append')
      #   hora = obterHoraAtual()
       #  return tamanho, hora
 
@@ -176,3 +179,77 @@ def SeparacoPedidos():
         #return tamanho, hora
 
 
+def SugestaoSKU():
+    conn = jaydebeapi.connect(
+        'com.intersys.jdbc.CacheDriver',
+        'jdbc:Cache://187.32.10.129:1972/SISTEMAS',
+        {'user': 'root', 'password': 'ccscache'},
+        'CacheDB.jar'
+    )
+    SugestoesAbertos = pd.read_sql(
+        'select s.codPedido as codpedido, s.produto, s.qtdeSugerida as qtdesugerida , s.qtdePecasConf as qtdepecasconf  '
+        ', '+"'-' as enderco1 "+
+        'from ped.SugestaoPedItem s  '
+        'left join ped.SugestaoPed p on p.codEmpresa = s.codEmpresa and p.codPedido = s.codPedido  '
+        'WHERE s.codEmpresa =1 and p.situacaoSugestao =2'
+        ' order by p.dataGeracao, p.codPedido ', conn)
+    conn2 = ConexaoPostgreRailway.conexao()
+   # validacao = pd.read_sql('select codpedido, '+"'ok'"+' as "validador"  from "Reposicao".pedidossku f ', conn2)
+
+    #SugestoesAbertos = pd.merge(SugestoesAbertos, validacao, on='codpedido', how='left')
+  #  SugestoesAbertos = SugestoesAbertos.loc[SugestoesAbertos['validador'].isnull()]
+    # Excluir a coluna 'B' inplace
+  #  SugestoesAbertos.drop('validador', axis=1, inplace=True)
+    SugestoesAbertos['necessidade'] = SugestoesAbertos['qtdesugerida'] - SugestoesAbertos['qtdepecasconf']
+    tamanho = SugestoesAbertos['codpedido'].size
+    dataHora = obterHoraAtual()
+    SugestoesAbertos['datahora'] = dataHora
+
+    if not SugestoesAbertos.empty:
+        SugestoesAbertos["enderco1"] = SugestoesAbertos.apply(
+            lambda row: 'Concluido' if pd.isnull(row['enderco1']) else '-', axis=1)
+        SugestoesAbertos['status'] = SugestoesAbertos['qtdesugerida'].astype(str) + '/' + SugestoesAbertos['qtdepecasconf'].astype(str)
+        Funcao_Inserir(SugestoesAbertos, tamanho, 'pedidossku', 'replace')
+        x = CalculoNecessidadesEndereco.NecessidadesPedidos()
+        SugestoesAbertos = pd.merge(SugestoesAbertos, x ,on=['codpedido','produto'], how = 'left')
+        SugestoesAbertos['status'] = SugestoesAbertos['qtdesugerida'].astype(str) + '/' + SugestoesAbertos[
+            'qtdepecasconf'].astype(str)
+        SugestoesAbertos["enderco"] = SugestoesAbertos.apply(
+            lambda row: 'Ped. Conferido' if pd.isnull(row['enderco']) and row['necessidade']==0 else row['enderco'] , axis=1)
+        Funcao_Inserir(SugestoesAbertos, tamanho, 'pedidossku', 'replace')
+        return SugestoesAbertos
+    else:
+        return f'SKU NAO ATUALIADO {dataHora}'
+
+
+
+def VerificarPedidoFeito():
+    conn = jaydebeapi.connect(
+        'com.intersys.jdbc.CacheDriver',
+        'jdbc:Cache://187.32.10.129:1972/SISTEMAS',
+        {'user': 'root', 'password': 'ccscache'},
+        'CacheDB.jar'
+    )
+    pedidosAtual = pd.read_sql('SELECT s.codPedido as codpedido  FROM ped.SugestaoPed s '
+                   'WHERE s.codEmpresa = 1 and s.situacaoSugestao in (2, 3,5) ',conn)
+    conn2 = ConexaoPostgreRailway.conexao()
+    validacao = pd.read_sql('select codigopedido as codpedido , ' + "'ok'" + ' as "validador"  from "Reposicao".filaseparacaopedidos f ', conn2)
+
+    SugestoesAbertos = pd.merge(pedidosAtual, validacao, on='codpedido', how='left')
+    SugestoesAbertos = SugestoesAbertos.loc[SugestoesAbertos['validador'].isnull()]
+   # Excluir a coluna 'B' inplace
+    SugestoesAbertos.drop('validador', axis=1, inplace=True)
+    # Obter os valores para a cláusula WHERE do DataFrame
+    sugestoes_abertos = SugestoesAbertos['codpedido'].tolist()
+
+    # Construir a consulta DELETE usando a cláusula WHERE com os valores do DataFrame
+    query = sql.SQL('DELETE FROM "Reposicao"."filaseparacaopedidos" WHERE codigopedido IN ({})').format(
+        sql.SQL(',').join(map(sql.Literal, sugestoes_abertos))
+    )
+
+    # Executar a consulta DELETE
+    with conn2.cursor() as cursor:
+        cursor.execute(query)
+        conn2.commit()
+
+    return 'teste'
