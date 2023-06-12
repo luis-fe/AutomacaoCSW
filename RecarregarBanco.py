@@ -4,7 +4,6 @@ import time
 from sqlalchemy import create_engine
 import datetime
 import numpy
-
 import CalculoNecessidadesEndereco
 import ConexaoPostgreRailway
 from psycopg2 import sql
@@ -18,7 +17,7 @@ def obterHoraAtual():
     hora_str = agora.strftime('%d/%m/%Y %H:%M')
     return hora_str
 
-def Funcao_Inserir (df_tags, tamanho,tabela, replace):
+def Funcao_Inserir (df_tags, tamanho,tabela, metodo):
     # Configurações de conexão ao banco de dados
     database = "railway"
     user = "postgres"
@@ -32,7 +31,7 @@ def Funcao_Inserir (df_tags, tamanho,tabela, replace):
     # Inserir dados em lotes
     chunksize = tamanho
     for i in range(0, len(df_tags), chunksize):
-        df_tags.iloc[i:i + chunksize].to_sql(tabela, engine, if_exists=replace, index=False , schema='Reposicao')
+        df_tags.iloc[i:i + chunksize].to_sql(tabela, engine, if_exists=metodo, index=False , schema='Reposicao')
 
 start_time = time.perf_counter()
 
@@ -95,9 +94,6 @@ def FilaTags():
         hora = obterHoraAtual()
         return tamanho, hora
 
-    conn.close()
-    conn2.close()
-    return dataHora
 
 def LerEPC():
     conn = jaydebeapi.connect(
@@ -188,39 +184,51 @@ def SugestaoSKU():
     )
     SugestoesAbertos = pd.read_sql(
         'select s.codPedido as codpedido, s.produto, s.qtdeSugerida as qtdesugerida , s.qtdePecasConf as qtdepecasconf  '
-        ', '+"'-' as enderco1 "+
         'from ped.SugestaoPedItem s  '
         'left join ped.SugestaoPed p on p.codEmpresa = s.codEmpresa and p.codPedido = s.codPedido  '
         'WHERE s.codEmpresa =1 and p.situacaoSugestao =2'
         ' order by p.dataGeracao, p.codPedido ', conn)
-    conn2 = ConexaoPostgreRailway.conexao()
-   # validacao = pd.read_sql('select codpedido, '+"'ok'"+' as "validador"  from "Reposicao".pedidossku f ', conn2)
 
-    #SugestoesAbertos = pd.merge(SugestoesAbertos, validacao, on='codpedido', how='left')
-  #  SugestoesAbertos = SugestoesAbertos.loc[SugestoesAbertos['validador'].isnull()]
-    # Excluir a coluna 'B' inplace
-  #  SugestoesAbertos.drop('validador', axis=1, inplace=True)
     SugestoesAbertos['necessidade'] = SugestoesAbertos['qtdesugerida'] - SugestoesAbertos['qtdepecasconf']
     tamanho = SugestoesAbertos['codpedido'].size
     dataHora = obterHoraAtual()
     SugestoesAbertos['datahora'] = dataHora
 
     if not SugestoesAbertos.empty:
-        SugestoesAbertos["enderco1"] = SugestoesAbertos.apply(
-            lambda row: 'Concluido' if pd.isnull(row['enderco1']) else '-', axis=1)
-        SugestoesAbertos['status'] = SugestoesAbertos['qtdesugerida'].astype(str) + '/' + SugestoesAbertos['qtdepecasconf'].astype(str)
-        Funcao_Inserir(SugestoesAbertos, tamanho, 'pedidossku', 'replace')
-        x = CalculoNecessidadesEndereco.NecessidadesPedidos()
-        SugestoesAbertos = pd.merge(SugestoesAbertos, x ,on=['codpedido','produto'], how = 'left')
-        SugestoesAbertos['status'] = SugestoesAbertos['qtdesugerida'].astype(str) + '/' + SugestoesAbertos[
-            'qtdepecasconf'].astype(str)
-        SugestoesAbertos["enderco"] = SugestoesAbertos.apply(
-            lambda row: 'Ped. Conferido' if pd.isnull(row['enderco']) and row['necessidade']==0 else row['enderco'] , axis=1)
-        Funcao_Inserir(SugestoesAbertos, tamanho, 'pedidossku', 'replace')
+
+        SugestoesAbertos['endereco'] = 'a calcular'
+        print("inicar insercao de dados")
+        Funcao_Inserir(SugestoesAbertos, tamanho, 'comunicaoskucsw', 'replace')
+        print("dados inceridos com sucesso")
+
+
         return SugestoesAbertos
     else:
-        return f'SKU NAO ATUALIADO {dataHora}'
+        return SugestoesAbertos
 
+
+def IncrementarSku():
+    conn2 = ConexaoPostgreRailway.conexao()
+    sku_csw = SugestaoSKU()
+    sku_anterior = pd.read_sql('select codpedido, '+"'ok'"+' as verifica from "Reposicao".pedidossku ',conn2)
+    sku = pd.merge(sku_csw, sku_anterior, on='codpedido', how='left')
+
+    sku = sku.loc[sku['verifica'].isnull()]
+    # Excluir a coluna 'B' inplace
+    sku.drop('verifica', axis=1, inplace=True)
+    # Chamar a função NecessidadesPedidos() para obter os novos valores calculados
+    novos_valores = CalculoNecessidadesEndereco.NecessidadesPedidos()
+
+    # Atualizar a tabela "Reposicao.pedidossku" com os novos valores em massa
+    CalculoNecessidadesEndereco.AtualizarTabelaPedidosSKU(novos_valores)
+    if not sku.empty:
+        tamanho = sku['codpedido'].size
+        Funcao_Inserir(sku, tamanho, 'pedidossku', 'append')
+        print(f'incremento realizado{sku["codpedido"][0]}')
+    else:
+        print('sem dados a incrementar')
+    conn2.close()
+    return 'teste'
 
 
 def VerificarPedidoFeito():

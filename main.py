@@ -12,7 +12,7 @@ def my_task():
         # coloque o código que você deseja executar continuamente aqui
         tamnho, datahora = RecarregarBanco.FilaTags()
         TratamentoErro.TratandoErroTagsSemelhanteFilaxInventario()
-        RecarregarBanco.SugestaoSKU()
+        RecarregarBanco.IncrementarSku()
 
         RecarregarBanco.VerificarPedidoFeito()
         print(f'tarefa execultado com sucesso - fila reposicao: {datahora}')
@@ -44,5 +44,5 @@ def Atumatizar():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    RecarregarBanco.SugestaoSKU()
+    RecarregarBanco.IncrementarSku()
     app.run(host='0.0.0.0', port=port)
