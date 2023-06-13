@@ -11,7 +11,7 @@ colorama==0.4.5
 greenlet == 2.0.2
 gunicorn==20.1.0
 itsdangerous==2.0.1
-numpy==1.24.1
+numpy==1.19.1
 packaging==23.1
 pandas==2.0.1
 psycopg2==2.9.5
