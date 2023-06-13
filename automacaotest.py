@@ -4,7 +4,7 @@ import pandas as pd
 def LerEPC():
     conn = jaydebeapi.connect(
         'com.intersys.jdbc.CacheDriver',
-        'jdbc:Cache://187.32.10.129:1972/SISTEMAS',
+        'jdbc:Cache://192.168.0.25:1972/SISTEMAS',
         {'user': 'root', 'password': 'ccscache'},
         'CacheDB.jar'
     )
