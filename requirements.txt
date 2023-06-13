@@ -2,7 +2,7 @@ Flask==2.0.3
 JPype1==1.2.1
 JayDeBeApi==1.2.3
 Jinja2==3.0.3
-MarkupSafe==2.1.2
+MarkupSafe==2.0.1
 SQLAlchemy==2.0.13
 Werkzeug==2.3.4
 blinker==1.6.2
